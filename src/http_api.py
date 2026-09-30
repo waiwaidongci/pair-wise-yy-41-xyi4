@@ -97,7 +97,17 @@ def make_handler(service: Service, static_dir: str):
                 elif path == "/api/audit":
                     actor, role = self._identity()
                     del actor
-                    self._json(200, {"events": service.audit(role)})
+                    query = parse_qs(urlparse(self.path).query)
+                    verify_values = query.get("verify", []) + query.get("verify_chain", [])
+                    should_verify = any(value not in ("0", "false", "False") for value in verify_values)
+                    if should_verify:
+                        self._json(200, service.audit_chain_status(role))
+                    else:
+                        self._json(200, {"events": service.audit(role)})
+                elif path in ("/api/audit/verify", "/api/audit/verify-chain"):
+                    actor, role = self._identity()
+                    del actor
+                    self._json(200, service.audit_chain_status(role))
                 else:
                     self._json(404, {"error": "not_found"})
             except Exception as exc:
@@ -108,7 +118,19 @@ def make_handler(service: Service, static_dir: str):
                 path = urlparse(self.path).path
                 actor, role = self._identity()
                 body = self._body()
-                if path == "/api/items":
+                if path in (
+                    "/api/offline-batch",
+                    "/api/offline-batches",
+                    "/api/offline-sync",
+                    "/api/offline/upload",
+                    "/api/batch-sync",
+                    "/api/batches",
+                    "/api/sync/offline-batch",
+                    "/api/items/offline-batch",
+                    "/api/items/sync",
+                ):
+                    self._json(200, service.sync_offline_batch(body, actor, role))
+                elif path == "/api/items":
                     self._json(201, service.create_item(body, actor, role))
                 elif path.startswith("/api/items/") and path.endswith("/records"):
                     item_id = int(path.split("/")[3])

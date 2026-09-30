@@ -30,9 +30,17 @@ python3 app.py --db ./data.db --port 8318
 - `GET /api/items/{id}`
 - `POST /api/items/{id}/records`
 - `POST /api/items/{id}/transition`，必须提交`expected_version`
+- `POST /api/offline-batch`：离线批次补传，使用`batch_id`幂等重放
+- `GET /api/audit?verify=1` 或 `GET /api/audit/verify`：校验审计链并返回出错事件编号
 - `GET /api/audit`
 
 允许角色：sensor_operator, bridge_engineer, traffic_authority, viewer。监测偏差与预警阈值之比和多条异常记录决定告警等级；限行与封闭决策必须绑定交通通告记录。
+
+## 离线补传
+
+`POST /api/offline-batch`按`batch_id`整批处理，批次内操作支持`偏差登记`、`异常事项`和`限行推进`（也兼容英文别名`deviation`、`issue`、`advance`）。每条操作可单独带`actor`和`role`；越权、跳级、引用缺失等不会改动已入库数据，而会进入响应中的`conflicts`清单。
+
+补传的状态或记录变更与审计事件在同一事务提交。若服务端告警版本已经前进，`限行推进`忽略车辆端旧版本并按服务端当前状态和版本重新判定；`expected_version`会保留在审计详情中。同`batch_id`且同请求体重传时直接返回首次结果，不重复写业务数据或审计。
 
 ## 测试
 
