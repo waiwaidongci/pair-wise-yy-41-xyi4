@@ -94,10 +94,19 @@ def make_handler(service: Service, static_dir: str):
                     actor, role = self._identity()
                     del actor
                     self._json(200, service.get_item(item_id, role))
+                elif path.startswith("/api/batches/"):
+                    batch_id = path.split("/")[3]
+                    actor, role = self._identity()
+                    del actor
+                    self._json(200, service.get_batch(batch_id, role))
                 elif path == "/api/audit":
                     actor, role = self._identity()
                     del actor
-                    self._json(200, {"events": service.audit(role)})
+                    events = service.audit(role)
+                    chain = service.audit_chain_status(role)
+                    self._json(200, {"events": events,
+                                     "chain_valid": chain["chain_valid"],
+                                     "broken_at": chain["broken_at"]})
                 else:
                     self._json(404, {"error": "not_found"})
             except Exception as exc:
@@ -119,6 +128,9 @@ def make_handler(service: Service, static_dir: str):
                     expected = body.get("expected_version")
                     self._json(200, service.transition(
                         item_id, target, expected, actor, role))
+                elif path == "/api/batches":
+                    self._json(200, service.upload_batch(
+                        body.get("batch_id"), body.get("operations"), actor, role))
                 else:
                     self._json(404, {"error": "not_found"})
             except Exception as exc:
